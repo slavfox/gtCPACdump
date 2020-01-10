@@ -7,34 +7,34 @@ from collections import namedtuple
 from gtcpacdump.common import OKBLUE, OKGREEN, WARNING, ENDC
 from .common import read_type
 
-Subfile = namedtuple("Subfile", ("offset", "size"))
+SubarchivePointer = namedtuple("Subfile", ("offset", "size"))
 
 
 class CPAC:
     def __init__(self, cpac_2d_path: Path):
-        self.cpac_2d_path = cpac_2d_path
-        self.subfiles = []
+        self.cpac_path = cpac_2d_path
+        self.subarchives = []
 
     def parse_subfiles(self):
-        with self.cpac_2d_path.open("rb") as f:
+        with self.cpac_path.open("rb") as f:
             print(
-                f"  {OKBLUE}Reading {ENDC}{self.cpac_2d_path.absolute()}"
+                f"  {OKBLUE}Reading {ENDC}{self.cpac_path.absolute()}"
                 f"{OKBLUE}...{ENDC} ",
                 end="",
             )
-            self.subfiles = []
+            self.subarchives = []
             while True:
                 offset_size = read_type(f, "II")
-                self.subfiles.append(Subfile(*offset_size))
-                if f.tell() >= self.subfiles[0].offset:
+                self.subarchives.append(SubarchivePointer(*offset_size))
+                if f.tell() >= self.subarchives[0].offset:
                     break
             print(
                 f"{OKGREEN}OK!\n  Found "
-                f"{WARNING}{len(self.subfiles)}{OKGREEN} subfiles.{ENDC}"
+                f"{WARNING}{len(self.subarchives)}{OKGREEN} subfiles.{ENDC}"
             )
 
     def open(self, id_: int) -> bytes:
-        with self.cpac_2d_path.open("rb") as f:
-            f.seek(self.subfiles[id_].offset)
-            subfile = f.read(self.subfiles[id_].size)
+        with self.cpac_path.open("rb") as f:
+            f.seek(self.subarchives[id_].offset)
+            subfile = f.read(self.subarchives[id_].size)
         return subfile

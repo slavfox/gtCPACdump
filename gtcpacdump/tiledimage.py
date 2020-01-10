@@ -7,8 +7,6 @@ from .common import read_type
 
 from gtcpacdump.common import OKBLUE, OKGREEN, ENDC
 from .tileutils import (
-    TILE_WIDTH,
-    TILE_HEIGHT,
     read_rgb555_palette,
     read_tile,
     dump_tile,
@@ -16,10 +14,11 @@ from .tileutils import (
 
 
 class TiledImage:
-    def __init__(self, data: bytes):
+    def __init__(self, data: bytes, tile_size=(8,8)):
         self._data = BytesIO(data)
         self.width = 0
         self.height = 0
+        self.tile_size = tile_size
         self.tiles = []
         self.palette = None
 
@@ -29,13 +28,13 @@ class TiledImage:
         self.width, flags = read_type(self._data, "HH")
         self.height = flags & ~0x00008000
         nibbles = bool(flags & 0x00008000)
-        if self.width % TILE_WIDTH:
+        if self.width % self.tile_size[0]:
             raise ValueError(
                 f"The width {self.width} has to be evenly "
                 f"divideable "
                 "by the tile width!"
             )
-        if self.height % TILE_HEIGHT:
+        if self.height % self.tile_size[1]:
             raise ValueError(
                 "The height has to be evenly divideable " "by the tile height!"
             )
@@ -43,10 +42,10 @@ class TiledImage:
         self._data.seek(512)
         self.palette = read_rgb555_palette(self._data, bpp)
 
-        tile_count = (self.width // TILE_WIDTH) * (self.height // TILE_HEIGHT)
+        tile_count = (self.width // self.tile_size[0]) * (self.height // self.tile_size[1])
         self.tiles = []
         for i in range(tile_count):
-            self.tiles.append(read_tile(bpp, self._data))
+            self.tiles.append(read_tile(bpp, self._data, self.tile_size))
         print(
             f"  {OKGREEN}Loaded {ENDC}{tile_count}{OKGREEN}-tile, "
             f"{ENDC}{self.width}x{self.height}{OKGREEN}px image.{ENDC}"
@@ -55,8 +54,8 @@ class TiledImage:
     def dump(self, transparent: bool) -> Image:
         print(f"  {OKBLUE}Dumping image.{ENDC}")
         image = Image.new("RGBA", (self.width, self.height),)
-        xtiles = self.width // TILE_WIDTH
-        ytiles = self.height // TILE_HEIGHT
+        xtiles = self.width // self.tile_size[0]
+        ytiles = self.height // self.tile_size[1]
 
         bigtileheight = 2
         bigtilewidth = 2
@@ -68,10 +67,10 @@ class TiledImage:
             for bigxpos in range(bigxtiles):
                 for smallypos in range(bigtileheight):
                     totalypos = (bigypos * bigtileheight) + smallypos
-                    dest_y = totalypos * TILE_HEIGHT
+                    dest_y = totalypos * self.tile_size[1]
                     for smallxpos in range(bigtilewidth):
                         totalxpos = (bigxpos * bigtilewidth) + smallxpos
-                        dest_x = totalxpos * TILE_WIDTH
+                        dest_x = totalxpos * self.tile_size[0]
 
                         tile_index = (
                             bigtilearea * (bigxpos + (bigypos * bigxtiles))
@@ -81,6 +80,7 @@ class TiledImage:
                             self.palette,
                             0,
                             transparent,
+                            self.tile_size
                         )
                         image.paste(
                             tile, (dest_x, dest_y,),

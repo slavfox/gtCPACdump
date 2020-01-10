@@ -8,36 +8,18 @@ from gtcpacdump.common import OKBLUE, OKGREEN, WARNING, FAIL, ENDC, BOLD
 from gtcpacdump.cpac import CPAC
 from gtcpacdump.subarchive import SubArchive
 
+BGS_SUBARCHIVE_IDX = 4
+
 
 class GhostTrickDumper:
-    def __init__(self, path_to_cpac: Path, output_dir: Path, mode: str):
+    def __init__(self, path_to_cpac: Path):
         print(
             f"{OKBLUE}{BOLD}Initializing "
             f"{WARNING}Ghost Trick CPAC dumper{ENDC}{BOLD}{OKBLUE}.{ENDC}"
         )
-        self.mode = mode
         self.path_to_cpac2d = path_to_cpac
-        output_dir.mkdir(parents=True, exist_ok=True)
-        self.output_dir = output_dir
         self.cpac = CPAC(self.path_to_cpac2d)
         self.cpac.parse_subfiles()
-
-    def dump_backgrounds(self):
-        print(f"{OKBLUE}Preparing to extract backgrounds in .{ENDC}")
-        bgs_subarchive = self.load_subarchive(4)
-        bgs_dir = self.output_dir / "4"
-        print(f"{OKBLUE}{BOLD}Extracting backgrounds.{ENDC}")
-        bgs_dir.mkdir(parents=True, exist_ok=True)
-        for i in range(1, len(bgs_subarchive.subfiles)):
-            print(f"{OKBLUE}Dumping background {WARNING}{i}{OKBLUE}...{ENDC}")
-            try:
-                im = bgs_subarchive.dump_image(i)
-                im_path = bgs_dir / f"bg_{i}.png"
-                with im_path.open("wb") as f:
-                    im.save(f)
-                    print(f"{OKGREEN}Saved as {ENDC}{im_path}{OKGREEN}!{ENDC}")
-            except Exception:  # ToDo
-                print(f"{FAIL}Fail.{ENDC}")
 
     def load_subarchive(self, i: int) -> SubArchive:
         print(
@@ -53,33 +35,94 @@ class GhostTrickDumper:
             print(f"{BOLD}{FAIL}ERROR: {WARNING}{e}.")
 
 
+def init_dumper(args):
+    return GhostTrickDumper(args.input_file)
+
+
+def cmd_list_subarchives(args):
+    dumper = init_dumper(args)
+    for (offset, size) in dumper.cpac.subarchives:
+        print(f"Offset: {offset}, size: {size}")
+
+
+def cmd_list_subfiles(args):
+    dumper = init_dumper(args)
+    subarchive = dumper.load_subarchive(args.subarchive_index)
+    for sfe in subarchive.subfiles:
+        print(f"Offset: {sfe.offset}, size: {sfe.size}, compressed:"
+              f" {sfe.compressed}, ?: {sfe.unknown_flag}")
+
+
+def cmd_subarchive_images(args):
+    dumper = init_dumper(args)
+    subarchive = dumper.load_subarchive(args.subarchive_index)
+    output_dir = args.output_dir / str(args.subarchive_index)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for i in range(1, len(subarchive.subfiles)):
+        im = subarchive.dump_image(i, args.mode)
+        im_path = output_dir / f"{i}.png"
+        with im_path.open("wb") as f:
+            im.save(f)
+
+
+def cmd_dump_subfiles(args):
+    dumper = init_dumper(args)
+    subarchive = dumper.load_subarchive(args.subarchive_index)
+    output_dir = args.output_dir / str(args.subarchive_index)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for i in range(1, len(subarchive.subfiles)):
+        try:
+            sf = subarchive.open(i, skip_decompression=True)
+        except:
+            continue
+        sf_path = output_dir / f"{i}.bin"
+        with sf_path.open("wb") as f:
+            f.write(sf)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Extract cpac_2d.bin files from Ghost Trick."
     )
-    parser.add_argument(
-        "input_path", help="Path to cpac_2d.bin", type=Path,
+    subparsers = parser.add_subparsers()
+    subparsers.add_parser("list_subarchives", help="List "
+                                                   "subarchives in the CPAC "
+                                                   "file"
+                                                   "").set_defaults(
+        func=cmd_list_subarchives)
+
+    subarchive_files = subparsers.add_parser("list_subfiles", help="List "
+                                                                   "subfiles in the given subarchive")
+    subarchive_files.set_defaults(func=cmd_list_subfiles)
+    subarchive_files.add_argument('subarchive_index', type=int)
+
+    dump_subfiles = subparsers.add_parser("dump_subfiles",
+                                              help="Dump subfiles from a "
+                                                   "given subarchive")
+    dump_subfiles.set_defaults(func=cmd_dump_subfiles)
+    dump_subfiles.add_argument('subarchive_index', type=int)
+    dump_subfiles.add_argument(
+        "output_dir", help="Path to the output directory", type=Path
     )
-    parser.add_argument(
+
+    subarchive_images = subparsers.add_parser("subarchive_images",
+                                              help="Dump images from a given subarchive")
+    subarchive_images.set_defaults(func=cmd_subarchive_images)
+    subarchive_images.add_argument('subarchive_index', type=int)
+    subarchive_images.add_argument(
         "--mode",
         choices=["nds", "ios"],
         default="nds",
         metavar="MODE",
         help="Extraction mode: either 'nds' (default) or 'ios'.",
     )
-    parser.add_argument(
-        "action",
-        choices=["backgrounds"],
-        nargs="?",
-        default="backgrounds",
-        help="What to extract. Right now, only 'backgrounds' (default) is "
-        "accepted",
-    )
-    parser.add_argument(
+    subarchive_images.add_argument(
         "output_dir", help="Path to the output directory", type=Path
     )
-    args = parser.parse_args()
 
-    dumper = GhostTrickDumper(args.input_path, args.output_dir, args.mode)
-    if args.action == "backgrounds":
-        dumper.dump_backgrounds()
+    parser.add_argument(
+        "-i", "--input-file", help="Path to cpac_2d.bin", type=Path,
+        required=True
+    )
+    args = parser.parse_args()
+    args.func(args)

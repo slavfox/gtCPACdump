@@ -2,18 +2,21 @@
 Ghost Trick cpac_2d.bin extractor.
 
 ```
-Usage: ghosttrick.py [-h] [--mode MODE] input_path [{backgrounds}] output_dir
+usage: ghosttrick.py [-h] -i INPUT_FILE {list_subarchives,list_subfiles,dump_subfiles,subarchive_images} ...
 
 Extract cpac_2d.bin files from Ghost Trick.
 
 positional arguments:
-  input_path     Path to cpac_2d.bin
-  {backgrounds}  What to extract. Right now, only 'backgrounds' (default) is accepted
-  output_dir     Path to the output directory
+  {list_subarchives,list_subfiles,dump_subfiles,subarchive_images}
+    list_subarchives    List subarchives in the CPAC file
+    list_subfiles       List subfiles in the given subarchive
+    dump_subfiles       Dump subfiles from a given subarchive
+    subarchive_images   Dump images from a given subarchive
 
 optional arguments:
-  -h, --help     show this help message and exit
-  --mode MODE    Extraction mode: either 'nds' (default) or 'ios'.
+  -h, --help            show this help message and exit
+  -i INPUT_FILE, --input-file INPUT_FILE
+                        Path to cpac_2d.bin
 ```
 
 Based heavily on [Henrik "Henke37" Andersson's original work on Nitro In a

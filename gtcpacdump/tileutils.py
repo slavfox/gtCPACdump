@@ -9,9 +9,6 @@ import numpy as np
 from io import BytesIO
 from .common import read_type
 
-TILE_HEIGHT = 8
-TILE_WIDTH = 8
-
 
 def scale_up(color):
     return color << 3 | color >> 2
@@ -44,38 +41,38 @@ def read_rgb555_palette(data: BytesIO, bpp: int):
     return [read_rgb555_color(data) for _ in range(palette_size)]
 
 
-def read_tile(bpp: int, data: BytesIO):
-    pixels = [0 for _ in range(TILE_WIDTH * TILE_HEIGHT)]
+def read_tile(bpp: int, data: BytesIO, tile_size=(8, 8)):
+    pixels = [0 for _ in range(tile_size[0] * tile_size[1])]
     if bpp == 4:
-        for y in range(TILE_HEIGHT):
+        for y in range(tile_size[1]):
             x = 0
-            while x < TILE_WIDTH:
+            while x < tile_size[0]:
                 nibble = read_type(data, "B")
-                index = x + y * TILE_WIDTH
+                index = x + y * tile_size[0]
                 pixels[index] = nibble & 0xF
                 x += 1
 
-                index = x + y * TILE_WIDTH
+                index = x + y * tile_size[0]
                 pixels[index] = (nibble >> 4) & 0xF
                 x += 1
     else:
-        for y in range(TILE_HEIGHT):
+        for y in range(tile_size[1]):
             x = 0
-            while x < TILE_WIDTH:
+            while x < tile_size[0]:
                 nibble = read_type(data, "B")
-                index = x + y * TILE_WIDTH
+                index = x + y * tile_size[0]
                 pixels[index] = nibble
                 x += 1
     return pixels
 
 
 def dump_tile(
-    pixels, palette, palette_offset=0, use_transparency=True,
+    pixels, palette, palette_offset=0, use_transparency=True, tile_size=(8, 8)
 ):
     index = 0
-    im_pixels = np.zeros((TILE_HEIGHT, TILE_WIDTH, 4), dtype="uint8",)
-    for y in range(TILE_HEIGHT):
-        for x in range(TILE_WIDTH):
+    im_pixels = np.zeros((tile_size[1], tile_size[0], 4), dtype="uint8",)
+    for y in range(tile_size[1]):
+        for x in range(tile_size[0]):
             color = pixels[index]
             index += 1
             if color == 0 and use_transparency:

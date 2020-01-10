@@ -36,11 +36,17 @@ class SubArchive:
         self.subfiles = []
         self.data_base_offset = 0
 
-    def dump_image(self, idx):
+    def dump_image(self, idx, mode='nds'):
         image = self.open(idx)
         if not image:
             return None
-        image = TiledImage(image)
+        if mode.lower() == 'nds':
+            tile_size = (8, 8)
+        elif mode.lower() == 'ios':
+            tile_size = (16, 16)
+        else:
+            raise ValueError(f'Invalid mode: {mode}')
+        image = TiledImage(image, tile_size)
         image.parse()
         return image.dump(False)
 
@@ -140,11 +146,11 @@ class SubArchive:
         else:
             raise ValueError("File has no table base section")
 
-    def open(self, id_: int) -> bytes:
+    def open(self, id_: int, skip_decompression=False) -> bytes:
         print(f"  {OKBLUE}Reading file {ENDC}{id_}{OKBLUE}.{ENDC}")
         self._data.seek(self.subfiles[id_].offset + self.data_base_offset)
         out = self._data.read(self.subfiles[id_].size)
-        if self.subfiles[id_].compressed:
+        if self.subfiles[id_].compressed and not skip_decompression:
             print(f"    {OKBLUE}Decompressing file {ENDC}{id_}{OKBLUE}.{ENDC}")
             out = stock_decompress(out)
         return out

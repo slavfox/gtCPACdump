@@ -40,7 +40,7 @@ def lz77_decode(
     bit = 0x0
     decoded = BytesIO()
     while len(decoded.getvalue()) < decoded_length:
-        flagbyte = b"\0"
+        flagbyte = 0
         bit = bit >> 1
         if bit > 4294967295:
             bit = 0
@@ -73,7 +73,7 @@ def lz77_decode(
                 decoded.write(readbyte)
         else:
             b = read_type(stream, "B")
-            decoded.write(b)
+            decoded.write(b.to_bytes(1, 'little'))
     return decoded.getvalue()
 
 
